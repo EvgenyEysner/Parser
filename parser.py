@@ -2,103 +2,146 @@ import requests
 import csv
 import json
 from bs4 import BeautifulSoup
-from PIL import Image
 
 # добавляю заголовок чтобы обойти защиту
 # узнать о защите можно -> https://www.regard.ru/robots.txt
 domain = 'https://www.regard.ru'
 header = {'user-agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:93.0) Gecko/20100101 Firefox/93.0'}
-page_url = 'https://www.regard.ru'
 
+# TO DO добавить асинхронность/ многопоточность + исключения
 
-# bs = BeautifulSoup(html.text, 'lxml')
 
 # сохраняю страницу в файл на случай бана
-# src = html.text
-#
-# with open('index.html', 'w') as file:
-#     file.write(src)
+def get_page(page):
+    req = requests.get(page, headers=header)
+    src = req.text
+
+    with open('parsed_data/index.html', 'w') as file:
+        index = file.write(src)
+    return index
+
 
 # далее работаю с сохраненным файлом
-
-with open('index.html') as file:
-    src = file.read()
-
-soup = BeautifulSoup(src, 'lxml')
-
 # ищу категории
-# categories_html = soup.find('div', id='lsidebar').find_all('li')
-# categories = {}  # 1615 категории
-#
-# for item in categories_html:
-#     name = item.find('a').text
-#     link = domain + item.find('a').get('href')
-#     categories[name] = link
-#
-#
-# with open('category.json', 'w') as file:
-#     json.dump(categories, file, indent=4, ensure_ascii=False)  # indent - отступы, ensure_ascii - убирает символы и позволяет устранить проблемы с кодировкой
+def get_category(index):
+    categories = {}  # 1615 категории
+    with open(index) as f:
+        src = f.read()
 
-# with open('category.json') as file:
-#     all_categories = json.load(file)
-#
-# products = []
-# count = 0
-# for name, url in all_categories.items():
-#
-#     html = requests.get(url=url, headers=header)
-#     src = html.text
-#     soup = BeautifulSoup(src, 'lxml')
-#     products_html = soup.find_all('div', class_='block')
-#
-#     for item in products_html:
-#         count += 1
-#         category_name = name
-#         product_name = item.find('a', class_='header').text
-#         link = domain + item.find('a').get('href')
-#         products.append(
-#             {
-#                 category_name:
-#                     {
-#                         'position': count,
-#                         'name': product_name,
-#                         'url': link
-#                     }
-#             }
-#         )
-#     # print(products)
-# with open('products.json', 'w') as file:
-#     json.dump(products, file, indent=4, ensure_ascii=False)
+        soup = BeautifulSoup(src, 'lxml')
+        categories_html = soup.find('div', id='lsidebar').find_all('li')
+        for item in categories_html:
+            name = item.find('a').text
+            link = domain + item.find('a').get('href')
+            categories[name] = link
 
-with open('parsed_data/products.json') as file:
-    products = file.read()
-    dict_list = json.loads(products)
-    # print(dict_list)
-    for item in dict_list:
-        for val in item.values():
-            url = val['url']
-            html = requests.get(url=url, headers=header)
-            src = html.text
-            soup = BeautifulSoup(src, 'lxml')
-            name = soup.find('div', id='hits-long').find('h1').text
-            price = soup.find('span', class_='price').text
-            description = soup.find('div', id='tabs-1').find('table').text
-            image_url = domain + soup.find('div', class_='big_preview').find('a').get('href')
-            req = requests.get(url=image_url, stream=True)
-            image_name = image_url.split('/')[5]
-            print(image_name)
-            response = req.content
-            with open(f'media/{image_name}', 'wb') as file:
-                file.write(response)
+    # запись категорий
+    with open('category.json', 'w') as file:
+        # indent - отступы, ensure_ascii - убирает символы и позволяет устранить проблемы с кодировкой
+        json.dump(categories, file, indent=4, ensure_ascii=False)
 
 
+# получаю ссылки на продукты
+def get_product_links(categories):
+    with open(f'parsed_data/{categories}') as file:
+        all_categories = json.load(file)
+
+    products = []
+    count = 0
+    # в цикле прохожу поо каждой категории и сохраняю ссылки на продукты
+    for name, url in all_categories.items():
+
+        html = requests.get(url=url, headers=header)
+        src = html.text
+        soup = BeautifulSoup(src, 'lxml')
+        products_html = soup.find_all('div', class_='block')
+
+        for item in products_html:
+            count += 1
+            category_name = name
+            product_name = item.find('a', class_='header').text
+            link = domain + item.find('a').get('href')
+            products.append(
+                {
+                    category_name:
+                        {
+                            'position': count,
+                            'name': product_name,
+                            'url': link
+                        }
+                }
+            )
+            print('Downloaded: ', count)
+            # запись продуктов/ ссылок
+    with open('products.json', 'w') as file:
+        json.dump(products, file, indent=4, ensure_ascii=False)
 
 
-# def main():
-#     # https://www.regard.ru/catalog
-#     all_links = []
-#     pass
+#  информация о продукте
+def get_product_data(product_links):
+
+    articles = []
+
+    with open(f'parsed_data/{product_links}') as file:
+        products = file.read()
+        dict_list = json.loads(products)
+        count = len(dict_list)
+        for item in dict_list:
+            for val in item.values():
+                count -= 1
+                url = val['url']
+                html = requests.get(url, headers=header)
+                src = html.text
+                soup = BeautifulSoup(src, 'lxml')
+
+                # категория и изготовитель
+                breadcrumbs = soup.find('div', id='breadcrumbs').text.split(' → ')  # беру из крошек категорию для записи
+                category = breadcrumbs[2]  # категории
+                # brand = breadcrumbs[3]  # и изготовителя
+
+                # название
+                name = soup.find('div', id='hits-long').find('h1').text
+                # цена
+                price = soup.find('span', class_='price').text.strip()
+
+                # описание
+                desc_html = soup.find('div', id='tabs-1').find('table').find_all('td')
+
+                # получаю фото
+                image_url = domain + soup.find('div', class_='big_preview').find('a').get('href')
+                req = requests.get(url=image_url, stream=True)
+                image_name = image_url.split('/')[5]
+                response = req.content
+                with open(f'media/{image_name}', 'wb') as file:
+                    file.write(response)
+                    with open(f'media/{image_name}', 'rb') as f:
+                        img = f.read()
+
+                articles.append(
+                    {
+                        'category': category,
+                        # -> 'brand': brand,
+                        'name': name,
+                        'price': price,
+                        'description': [child.text.strip() for child in desc_html],
+                        # -> 'image': img,
+
+                    }
+                )
+            print('Обработано: ', count)
+    # итоговый json
+    with open('articles.json', 'w') as file:
+        json.dump(products, file, indent=4, ensure_ascii=False)
+
+    return articles
 
 
-# if __name__ == 'main':
-#     main()
+def main():
+    get_page('some-site')
+    get_category('index.html')
+    get_product_links('category.json')
+    get_product_data('products.json')
+
+
+if __name__ == 'main':
+    main()
