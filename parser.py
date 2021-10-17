@@ -4,9 +4,9 @@ import json
 from bs4 import BeautifulSoup
 
 # добавляю заголовок чтобы обойти защиту
-# узнать о защите можно -> https://www.regard.ru/robots.txt
-domain = 'https://www.regard.ru'
-header = {'user-agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:93.0) Gecko/20100101 Firefox/93.0'}
+# узнать о защите можно -> https://www.site/robots.txt
+domain = 'https://www.'
+header = {'user-agent': ''}
 
 # TO DO добавить асинхронность/ многопоточность + исключения
 
@@ -97,7 +97,6 @@ def get_product_data(product_links):
                 # категория и изготовитель
                 breadcrumbs = soup.find('div', id='breadcrumbs').text.split(' → ')  # беру из крошек категорию для записи
                 category = breadcrumbs[2]  # категории
-                # brand = breadcrumbs[3]  # и изготовителя
 
                 # название
                 name = soup.find('div', id='hits-long').find('h1').text
@@ -120,11 +119,10 @@ def get_product_data(product_links):
                 articles.append(
                     {
                         'category': category,
-                        # -> 'brand': brand,
                         'name': name,
                         'price': price,
                         'description': [child.text.strip() for child in desc_html],
-                        # -> 'image': img,
+                        'image': img,
 
                     }
                 )
