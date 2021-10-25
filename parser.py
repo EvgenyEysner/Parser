@@ -141,5 +141,5 @@ def main():
     get_product_data('products.json')
 
 
-if __name__ == 'main':
+if __name__ == '__main__':
     main()
